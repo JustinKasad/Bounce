@@ -22,10 +22,12 @@ window.onload = function() {
   var htmlTop = html.offsetTop;
   var htmlLeft = html.offsetLeft;
   var play = false;
-  var bounceDifficulty = 10;
+  var bounceDifficulty = 25;
   var bounceCount = 0;
   var randomColor = 'red';
-
+  var padAcceleration = 0;
+  var particles = [];
+  var stars = [];
 
   var canvasElement = document.createElement("canvas");
   canvasElement.width = CANVAS_WIDTH;
@@ -101,7 +103,7 @@ window.onload = function() {
   }
   resizeCanvas();
   setEvents();
-
+  drawStar()
 
 
 
@@ -121,43 +123,55 @@ window.onload = function() {
         randomColor = getRndColor();
 
         ball.vx = bounceDifficulty * ((ball.x-(pad.x+pad.width/2))/pad.width);
-        bounceDifficulty = bounceDifficulty + 5;
+        bounceDifficulty = bounceDifficulty;
         if(bounceDifficulty > 150){
           bounceDifficulty = 100;
         }
-        console.log('ball.vx: ' + ball.vx + ' bounceDifficulty:' + bounceDifficulty);
 
-        ball.vy = Math.floor(Math.random() * (25 - 15 + 1)) + 15;;
-
-//        if(bounceDifficulty > 20){
-//          ball.vy = Math.random() * 30
-//        }
-//        if(bounceDifficulty > 500){
-//          ball.vy = Math.random() * 40
-//        }
-//        if(bounceDifficulty > 100){
-//          ball.vy = Math.random() * 50
-//        }
-
+        ball.vy = padAcceleration * 30;
+        if(ball.vy < 15){
+          ball.vy = 15;
+        } else if(ball.vy > 25){
+          ball.vy = 25;
+        }
         ball.vy *= -bounceFactor;
-
-        bounceCount++;
-
       }
+
+      var i = stars.length;
+      while (i--) {
+        if(collides(ball, stars[i])){
+          boom(canvas, stars[i].x, stars[i].y);
+          stars.splice(i, 1);;
+          bounceCount++;
+        }
+      }
+
+
 
       if (ball.x + ball.width > CANVAS_WIDTH || ball.x < 0){
         ball.vx = -ball.vx;
       }
 
-      if(ball.y + ball.radius > CANVAS_HEIGHT) {
-          ball.reset();
+      if(ball.y  > CANVAS_HEIGHT) {
+          createExplosion(ball.x, ball.y - ball.radius, "#525252");
+          createExplosion(ball.x, ball.y - ball.radius, "red");
+
           bounceCount = 0;
           bounceDifficulty = 10;
-          play = false;;
+
+          setTimeout(function(){
+            play = false;
+            ball.reset();
+          }, 1500)
+
+
+
 
       }
 
     }
+
+
 
   }
 
@@ -170,13 +184,33 @@ window.onload = function() {
     canvas.fillStyle = "red";
     canvas.fillText(bounceCount, CANVAS_WIDTH - 20, 20);
 
-    canvas.font = "30px Comic Sans MS";
-    canvas.fillStyle = randomColor;
-    canvas.textAlign = 'center';
-    canvas.fillText("Hello William", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    if(play){
+      for (var i=0; i<particles.length; i++) {
+        var particle = particles[i];
+
+        particle.update(1000 / 60);
+        particle.draw(canvas);
+      }
+      for (var i=0; i<stars.length; i++) {
+        var star = stars[i];
+
+        star.draw(canvas);
+      }
+    }
+//    canvas.font = "30px Comic Sans MS";
+//    canvas.fillStyle = randomColor;
+//    canvas.textAlign = 'center';
+//    canvas.fillText("Hello William", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
   }
 
-
+  function drawStar(){
+    setInterval(function(){
+      stars.push(new star(canvas, randomFloat(0, 300), randomFloat(0, 300), 30, 5, 0.5));
+      if(stars.length > 2){
+        stars.shift();
+      }
+    }, 5000)
+  }
 
 
   function Shape(x, y, w, h, fill) {
@@ -206,7 +240,7 @@ window.onload = function() {
     }
   }
 
-
+  var log;
 
 
 
@@ -230,8 +264,8 @@ window.onload = function() {
         selection = mySel;
         valid = false;
 
-        var log = makeVelocityCalculator(e, function(v) {
-          console.log(v+" pixel/ms");
+        log = makeVelocityCalculator(e, function(v) {
+          padAcceleration = v;
         });
 
         return;
@@ -246,7 +280,7 @@ window.onload = function() {
         selection.x = ((mouse.x - offsetx) + pad.width) > CANVAS_WIDTH ? CANVAS_WIDTH - pad.width : (mouse.x - offsetx) > 0 ? (mouse.x - offsetx) : 0;
         selection.y = (mouse.y - offsety) > 450 ? (mouse.y - offsety + pad.height > CANVAS_HEIGHT ? CANVAS_HEIGHT - pad.height : mouse.y - offsety) : 450;
         valid = false; // Something's dragging so we must redraw
-
+        log(e);
 
 
       }
@@ -274,19 +308,10 @@ window.onload = function() {
       y = new_y;
       t = new_t;
       var velocity = Math.sqrt(x_dist*x_dist+y_dist*y_dist)/interval;
-      debugger;
       callback(velocity);
     };
   }
 
-  function handleCollisions() {
-
-    if (collides(pad, ball)) {
-
-    }
-
-
-  }
 
 
   function collides(a, b) {
@@ -325,4 +350,209 @@ window.onload = function() {
       b = 255*Math.random()|0;
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
-  };
+
+  function Particle () {
+    this.scale = 1.0;
+    this.x = 0;
+    this.y = 0;
+    this.radius = 20;
+    this.color = "#000";
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.scaleSpeed = 0.5;
+
+    this.update = function(ms)
+    {
+      // shrinking
+      this.scale -= this.scaleSpeed * ms / 1000.0;
+
+      if (this.scale <= 0)
+      {
+        this.scale = 0;
+      }
+      // moving away from explosion center
+      this.x += this.velocityX * ms/1000.0;
+      this.y += this.velocityY * ms/1000.0;
+    };
+
+    this.draw = function(context2D)
+    {
+      // translating the 2D context to the particle coordinates
+      context2D.save();
+      context2D.translate(this.x, this.y);
+      context2D.scale(this.scale, this.scale);
+
+      // drawing a filled circle in the particle's local space
+      context2D.beginPath();
+      context2D.arc(0, 0, this.radius, 0, Math.PI*2, true);
+      context2D.closePath();
+
+      context2D.fillStyle = this.color;
+      context2D.fill();
+
+      context2D.restore();
+    };
+  }
+  function randomFloat (min, max)
+  {
+    return min + Math.random()*(max-min);
+  }
+  function createExplosion(x, y, color) {
+    var minSize = 10;
+    var maxSize = 30;
+    var count = 10;
+    var minSpeed = 60.0;
+    var maxSpeed = 200.0;
+    var minScaleSpeed = 1.0;
+    var maxScaleSpeed = 4.0;
+
+    for (var angle=0; angle<360; angle += Math.round(360/count))
+    {
+      var particle = new Particle();
+
+      particle.x = x;
+      particle.y = y;
+
+      particle.radius = randomFloat(minSize, maxSize);
+
+      particle.color = color;
+
+      particle.scaleSpeed = randomFloat(minScaleSpeed, maxScaleSpeed);
+
+      var speed = randomFloat(minSpeed, maxSpeed);
+
+      particle.velocityX = speed * Math.cos(angle * Math.PI / 180.0);
+      particle.velocityY = speed * Math.sin(angle * Math.PI / 180.0);
+
+      particles.push(particle);
+    }
+  }
+
+
+  function star(ctx, x, y, r, p, m)
+  {
+    this.x = x;
+    this.y = y;
+    this.r = r;
+    this.width = this.height = this.r * 2;
+    this.p = p;
+    this.m = m;
+    this.draw = function(ctx){
+      ctx.fillStyle = 'GoldenRod';
+      ctx.save();
+      ctx.beginPath();
+      ctx.translate(this.x, this.y);
+      ctx.moveTo(0,0-this.r);
+      for (var i = 0; i < this.p; i++)
+      {
+        ctx.rotate(Math.PI / this.p);
+        ctx.lineTo(0, 0 - (this.r*this.m));
+        ctx.rotate(Math.PI / this.p);
+        ctx.lineTo(0, 0 - this.r);
+      }
+      ctx.fillStyle = 'gold';
+      ctx.fill();
+      ctx.restore();
+    }
+
+  }
+
+
+  function boom(ctx, actualX,actualY) {
+
+    // Shim with setTimeout fallback
+
+
+    var laX = actualX;
+    var laY = actualY;
+    var W = canvasElement.width;
+    var H = canvasElement.height;
+    // Let's set our gravity
+    var gravity = 1;
+
+    // Time to write a neat constructor for our
+    // particles.
+    // Lets initialize a random color to use for
+    // our particles and also define the particle
+    // count.
+    var particle_count = 20;
+    var particles = [];
+
+    var random_color = 'gold';
+
+    function Particle() {
+      this.radius = parseInt(Math.random() * 8);
+      this.x = actualX;
+      this.y = actualY;
+
+      this.color = random_color;
+
+      // Random Initial Velocities
+      this.vx = Math.random() * 4 - 2;
+      // vy should be negative initially
+      // then only will it move upwards first
+      // and then later come downwards when our
+      // gravity is added to it.
+      this.vy = Math.random() * -14 - 1;
+
+      // Finally, the function to draw
+      // our particle
+      this.draw = function() {
+        ctx.fillStyle = this.color;
+
+        ctx.beginPath();
+
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, false);
+        ctx.fill();
+
+        ctx.closePath();
+      };
+    }
+
+    // Now lets quickly create our particle
+    // objects and store them in particles array
+    for (var i = 0; i < particle_count; i++) {
+      var particle = new Particle();
+      particles.push(particle);
+    }
+
+
+    // Finally, writing down the code to animate!
+    (function renderFrame() {
+      requestAnimationFrame(renderFrame);
+
+      // Clearing screen to prevent trails
+
+      particles.forEach(function(particle) {
+
+        // The particles simply go upwards
+        // It MUST come down, so lets apply gravity
+        particle.vy += gravity;
+
+        // Adding velocity to x and y axis
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+
+        // We're almost done! All we need to do now
+        // is to reposition the particles as soon
+        // as they move off the canvas.
+        // We'll also need to re-set the velocities
+
+
+
+        particle.draw();
+
+      });
+    }());
+
+
+}
+
+
+
+
+
+
+};
+
+
