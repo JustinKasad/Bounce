@@ -17,13 +17,14 @@ window.onload = function() {
   var FPS = 30;
   var fps;
   var gravity = 1; //ball gravity
-  var bounceFactor = 1.2;  // ball bounce factor
+  var bounceFactor = 1.1;  // ball bounce factor
   var html = document.body.parentNode;
   var htmlTop = html.offsetTop;
   var htmlLeft = html.offsetLeft;
   var play = false;
-  var bounceDifficulty = 25;
+  var bounceDifficulty = 30;
   var score = 0;
+  var highscore = 0;
   var randomColor = 'red';
   var padAcceleration = 0;
   var particles = [];
@@ -53,6 +54,14 @@ window.onload = function() {
     stylePaddingTop  = parseInt(document.defaultView.getComputedStyle($_canvas, null)['paddingTop'], 10)       || 0;
     styleBorderLeft  = parseInt(document.defaultView.getComputedStyle($_canvas, null)['borderLeftWidth'], 10)  || 0;
     styleBorderTop   = parseInt(document.defaultView.getComputedStyle($_canvas, null)['borderTopWidth'], 10)   || 0;
+  }
+
+  if(typeof(Storage) !== "undefined") {
+    if(localStorage.getItem('highscore')){
+      highscore = localStorage.getItem('highscore');
+    }
+  } else {
+    // Sorry! No Web Storage support..
   }
 
   var ball = {
@@ -151,7 +160,8 @@ window.onload = function() {
         if(collides(ball, stars[i])){
           boom(canvas, stars[i].x, stars[i].y);
           stars.splice(i, 1);;
-          score++;
+          score += 25;
+          addSubtext("+ 25");
         }
       }
 
@@ -165,11 +175,15 @@ window.onload = function() {
           createExplosion(ball.x, ball.y - ball.radius, "#525252");
           createExplosion(ball.x, ball.y - ball.radius, "red");
 
-          score = 0;
-          bounceDifficulty = 10;
+          if(score > highscore){
+            highscore = score;
+            localStorage.setItem('highscore', highscore)
+          }
 
           setTimeout(function(){
             play = false;
+            score = 0;
+            bounceDifficulty = 10;
             ball.reset();
             stars = [];
             if(starInterval){
@@ -198,9 +212,10 @@ window.onload = function() {
     canvas.textAlign = "end";
     canvas.font = "bold 24px Comic Sans MS";
     canvas.fillStyle = "red";
-    canvas.fillText(score, CANVAS_WIDTH - 5, 30);
 
     if(play){
+      canvas.fillText(score, CANVAS_WIDTH - 5, 30);
+
       for (var i=0; i<particles.length; i++) {
         var particle = particles[i];
 
@@ -212,6 +227,8 @@ window.onload = function() {
 
         star.draw(canvas);
       }
+    } else {
+      canvas.fillText("Highscore: " + highscore, CANVAS_WIDTH - 5, 30);
     }
 //    canvas.font = "30px Comic Sans MS";
 //    canvas.fillStyle = randomColor;
@@ -298,7 +315,7 @@ window.onload = function() {
         // We don't want to drag the object by its top-left corner, we want to drag it
         // from where we clicked. Thats why we saved the offset and use it here
         selection.x = ((mouse.x - offsetx) + pad.width) > CANVAS_WIDTH ? CANVAS_WIDTH - pad.width : (mouse.x - offsetx) > 0 ? (mouse.x - offsetx) : 0;
-        selection.y = (mouse.y - offsety) > 450 ? (mouse.y - offsety + pad.height > CANVAS_HEIGHT ? CANVAS_HEIGHT - pad.height : mouse.y - offsety) : 450;
+        selection.y = (mouse.y - offsety) > 400 ? (mouse.y - offsety + pad.height > CANVAS_HEIGHT ? CANVAS_HEIGHT - pad.height : mouse.y - offsety) : 400;
         valid = false; // Something's dragging so we must redraw
         log(e);
 
@@ -309,6 +326,30 @@ window.onload = function() {
       isDrag = false;
     }, true);
 
+  }
+
+  function addSubtext(text){
+    if(interval){
+      clearInterval(interval);
+    }
+
+    canvas.textAlign = "end";
+    canvas.font = "bold 24px Comic Sans MS";
+    canvas.fillStyle = "rgba(255, 215, 0, " + alpha + ")";
+    canvas.fillText( text, CANVAS_WIDTH - 5, 60);
+
+    var alpha = 1.0,   // full opacity
+      interval = setInterval(function () {
+        canvas.textAlign = "end";
+        canvas.font = "bold 24px Comic Sans MS";
+        canvas.fillStyle = "rgba(255, 215, 0, " + alpha + ")";
+        canvas.fillText( text, CANVAS_WIDTH - 5, 60);
+        alpha = alpha - 0.05; // decrease opacity (fade out)
+        if (alpha < 0) {
+          canvas.width = canvas.width;
+          clearInterval(interval);
+        }
+      }, 1000/FPS);
   }
 
   function makeVelocityCalculator(e_init, callback) {
