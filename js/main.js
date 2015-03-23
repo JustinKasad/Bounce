@@ -95,8 +95,8 @@ window.onload = function() {
   };
 
   function resizeCanvas() {
-    canvas.width = CANVAS_WIDTH = window.outerWidth;
-    canvas.height = CANVAS_HEIGHT = window.outerHeight;
+    canvas.width = CANVAS_WIDTH = window.outerWidth || window.innerWidth;
+    canvas.height = CANVAS_HEIGHT = window.outerHeight || window.innerHeight;
 
     /**
      * Your drawings need to be inside this function otherwise they will be reset when
