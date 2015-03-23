@@ -473,6 +473,7 @@ window.onload = function() {
       ctx.fillStyle = 'gold';
       ctx.fill();
       ctx.restore();
+      ctx.closePath();
     }
 
   }
