@@ -16,18 +16,22 @@ window.onload = function() {
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
   var FPS = 30;
   var fps;
-  var gravity = 0.7;
-  var bounceFactor = 1;
+  var gravity = 1; //ball gravity
+  var bounceFactor = 1.2;  // ball bounce factor
   var html = document.body.parentNode;
   var htmlTop = html.offsetTop;
   var htmlLeft = html.offsetLeft;
   var play = false;
   var bounceDifficulty = 25;
-  var bounceCount = 0;
+  var score = 0;
   var randomColor = 'red';
   var padAcceleration = 0;
   var particles = [];
   var stars = [];
+  var starInterval;
+  var background = new Background(0,300);
+  var background2 = new Background(0,0);
+  var counter = 0;
 
   var canvasElement = document.createElement("canvas");
   canvasElement.width = CANVAS_WIDTH;
@@ -103,7 +107,7 @@ window.onload = function() {
   }
   resizeCanvas();
   setEvents();
-  drawStar()
+
 
 
 
@@ -111,6 +115,11 @@ window.onload = function() {
     if(play){
       ball.y += ball.vy;
       ball.x += ball.vx;
+      counter++;
+
+      if(counter % 10 == 0){
+        score++;
+      }
 
 
       // Ohh! The ball is moving!
@@ -142,7 +151,7 @@ window.onload = function() {
         if(collides(ball, stars[i])){
           boom(canvas, stars[i].x, stars[i].y);
           stars.splice(i, 1);;
-          bounceCount++;
+          score++;
         }
       }
 
@@ -156,12 +165,16 @@ window.onload = function() {
           createExplosion(ball.x, ball.y - ball.radius, "#525252");
           createExplosion(ball.x, ball.y - ball.radius, "red");
 
-          bounceCount = 0;
+          score = 0;
           bounceDifficulty = 10;
 
           setTimeout(function(){
             play = false;
             ball.reset();
+            stars = [];
+            if(starInterval){
+              clearInterval(starInterval)
+            }
           }, 1500)
 
 
@@ -177,12 +190,15 @@ window.onload = function() {
 
 
   function draw() {
+    background.draw();
+    background2.draw();
+
     pad.draw();
     ball.draw();
-
-    canvas.font = "20px Comic Sans MS";
+    canvas.textAlign = "end";
+    canvas.font = "bold 24px Comic Sans MS";
     canvas.fillStyle = "red";
-    canvas.fillText(bounceCount, CANVAS_WIDTH - 20, 20);
+    canvas.fillText(score, CANVAS_WIDTH - 5, 30);
 
     if(play){
       for (var i=0; i<particles.length; i++) {
@@ -204,12 +220,14 @@ window.onload = function() {
   }
 
   function drawStar(){
-    setInterval(function(){
+
+
+    starInterval = setInterval(function(){
       stars.push(new star(canvas, randomFloat(0, 300), randomFloat(0, 300), 30, 5, 0.5));
-      if(stars.length > 2){
+      if(stars.length > 3){
         stars.shift();
       }
-    }, 5000)
+    }, 2000)
   }
 
 
@@ -250,7 +268,6 @@ window.onload = function() {
     $_canvas.addEventListener('selectstart', function(e) { e.preventDefault(); return false; }, false);
     // Up, down, and move are for dragging
     $_canvas.addEventListener('touchstart', function(e) {
-      play = true;
       var mouse = getMouse(e);
       var mx = mouse.x;
       var my = mouse.y;
@@ -263,7 +280,10 @@ window.onload = function() {
         isDrag = true;
         selection = mySel;
         valid = false;
-
+        if(play == false){
+          drawStar();
+        }
+        play = true;
         log = makeVelocityCalculator(e, function(v) {
           padAcceleration = v;
         });
@@ -455,6 +475,32 @@ window.onload = function() {
       ctx.restore();
     }
 
+  }
+
+  var imageRepository = new function() {
+    // Define images
+    this.background = new Image();
+    // Set images src
+    this.background.src = "img/bg.png";
+  }
+
+  function Background(x, y) {
+    this.x = x;
+    this.y = y;
+
+
+    this.speed = 1; // Redefine speed of the background for panning
+    // Implement abstract function
+    this.draw = function() {
+      // Pan background
+      this.y += this.speed;
+      canvas.drawImage(imageRepository.background, this.x, this.y);
+      // Draw another image at the top edge of the first image
+      canvas.drawImage(imageRepository.background, this.x, this.y - CANVAS_WIDTH);
+      // If the image scrolled off the screen, reset
+      if (this.y >= CANVAS_HEIGHT)
+        this.y = 0;
+    };
   }
 
 
