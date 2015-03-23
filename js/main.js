@@ -1,7 +1,7 @@
 window.onload = function() {
 
-  var CANVAS_WIDTH = window.outerWidth;
-  var CANVAS_HEIGHT = window.outerHeight;
+  var CANVAS_WIDTH = window.outerWidth || window.innerWidth;
+  var CANVAS_HEIGHT = window.outerHeight || window.innerHeight;
   var rectWidth = 120;
   var rectHeight = 50;
   var rectX = CANVAS_WIDTH / 2 - rectWidth / 2;
