@@ -285,6 +285,7 @@ window.onload = function() {
     $_canvas.addEventListener('selectstart', function(e) { e.preventDefault(); return false; }, false);
     // Up, down, and move are for dragging
     $_canvas.addEventListener('touchstart', function(e) {
+      e.preventDefault();
       var mouse = getMouse(e);
       var mx = mouse.x;
       var my = mouse.y;
@@ -310,6 +311,7 @@ window.onload = function() {
 
     }, true);
     $_canvas.addEventListener('touchmove', function(e) {
+      e.preventDefault();
       if (isDrag){
         var mouse = getMouse(e);
         // We don't want to drag the object by its top-left corner, we want to drag it
@@ -323,6 +325,7 @@ window.onload = function() {
       }
     }, true);
     $_canvas.addEventListener('touchend', function(e) {
+      e.preventDefault();
       isDrag = false;
     }, true);
 
