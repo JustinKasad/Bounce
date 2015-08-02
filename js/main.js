@@ -9,22 +9,21 @@ window.onload = function() {
   var cornerRadius = 20;
   var isDrag = false;
   var mx, my; // mouse coordinates
-  var mySelColor = '#999';
-  var mySelWidth = 2;
   var offsetx, offsety, selection, valid;
   var pad;
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
-  var FPS = 30;
+  var FPS = 60;
   var fps;
-  var gravity = 1; //ball gravity
+  var gravity = .5; //ball gravity
   var bounceFactor = 1.1;  // ball bounce factor
   var html = document.body.parentNode;
   var htmlTop = html.offsetTop;
   var htmlLeft = html.offsetLeft;
   var play = false;
-  var bounceDifficulty = 30;
+  var bounceDifficulty = 30; // ball touches left side of pad, so it shoots left at this difficulty
   var score = 0;
   var highscore = 0;
+  var level = 1;
   var randomColor = 'red';
   var padAcceleration = 0;
   var particles = [];
@@ -33,13 +32,28 @@ window.onload = function() {
   var background = new Background(0,300);
   var background2 = new Background(0,0);
   var counter = 0;
+  var bonus = [];
+
+  document.body.style["positon"] = "relative";
 
   var canvasElement = document.createElement("canvas");
   canvasElement.width = CANVAS_WIDTH;
   canvasElement.height = CANVAS_HEIGHT;
   canvasElement.id = 'canvas';
+  canvasElement.style["z-index"] = "1";
+  canvasElement.style["background"] = "transparent";
+  canvasElement.style["position"] = "absolute";
   var canvas = canvasElement.getContext("2d");
   document.body.appendChild(canvasElement);
+
+  var canvasElement2 = document.createElement("canvas");
+  canvasElement2.width = CANVAS_WIDTH;
+  canvasElement2.height = CANVAS_HEIGHT;
+  canvasElement2.id = 'canvas_bg';
+  canvasElement2.style["z-index"] = "0";
+  canvasElement.style["position"] = "absolute";
+  var canvas_bg = canvasElement2.getContext("2d");
+  document.body.appendChild(canvasElement2);
 
 //  var canvasElement = $("<canvas id='canvas' width='" + CANVAS_WIDTH +
 //    "' height='" + CANVAS_HEIGHT + "'></canvas>");
@@ -65,7 +79,7 @@ window.onload = function() {
   }
 
   var ball = {
-    x: CANVAS_WIDTH/2,
+    x: CANVAS_WIDTH/2 + (Math.random() < 0.5 ? -1 : 1),
     y: 75,
 
     radius: 15,
@@ -78,7 +92,7 @@ window.onload = function() {
     vy: 1,
 
     reset: function(){
-      this.x = CANVAS_WIDTH/2;
+      this.x = CANVAS_WIDTH/2 + (Math.random() < 0.5 ? -1 : 1);
       this.y = 75;
       this.vx = 0;
       this.vy = 1;
@@ -108,7 +122,9 @@ window.onload = function() {
 
     pad = new Shape(rectX, rectY, rectWidth, rectHeight);
     canvas.fillStyle = getRndColor();
-    var fps = setInterval(function() {
+
+//------------------FPS------------------------
+    fps = setInterval(function() {
       update();
       canvas.clearRect(0, 0, canvas.width, canvas.height);
       draw();
@@ -146,7 +162,7 @@ window.onload = function() {
           bounceDifficulty = 100;
         }
 
-        ball.vy = padAcceleration * 30;
+        ball.vy = padAcceleration * 4;
         if(ball.vy < 15){
           ball.vy = 15;
         } else if(ball.vy > 25){
@@ -158,48 +174,40 @@ window.onload = function() {
       var i = stars.length;
       while (i--) {
         if(collides(ball, stars[i])){
-          boom(canvas, stars[i].x, stars[i].y);
-          stars.splice(i, 1);;
+          boom(canvas, stars[i].x, stars[i].y, 'gold', canvasElement.width, canvasElement.height);
+          stars.splice(i, 1);
           score += 25;
-          addSubtext("+ 25");
+          addBonus("+ 25");
         }
       }
 
 
-
-      if (ball.x + ball.width > CANVAS_WIDTH || ball.x < 0){
+      //if ball hits left or right wall
+      if (ball.x + ball.radius > CANVAS_WIDTH || ball.x - ball.radius < 0){
+        if(ball.x < 0){
+        }
         ball.vx = -ball.vx;
       }
 
-      if(ball.y  > CANVAS_HEIGHT) {
-          createExplosion(ball.x, ball.y - ball.radius, "#525252");
-          createExplosion(ball.x, ball.y - ball.radius, "red");
 
+      //ball explodes on the ground
+      if(ball.y  > CANVAS_HEIGHT) {
+          boom(canvas, ball.x, ball.y - ball.radius, "red", canvasElement.width, canvasElement.height)
           if(score > highscore){
             highscore = score;
             localStorage.setItem('highscore', highscore)
           }
 
-          setTimeout(function(){
-            play = false;
-            score = 0;
-            bounceDifficulty = 10;
-            ball.reset();
-            stars = [];
-            if(starInterval){
-              clearInterval(starInterval)
-            }
-          }, 1500)
-
-
-
-
+          play = false;
+          score = 0;
+          bounceDifficulty = 10;
+          ball.reset();
+          stars = [];
+          if(starInterval){
+            clearInterval(starInterval)
+          }
       }
-
     }
-
-
-
   }
 
 
@@ -213,8 +221,11 @@ window.onload = function() {
     canvas.font = "bold 24px Comic Sans MS";
     canvas.fillStyle = "red";
 
+    var html_highscore = highscore.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    var html_score = score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
     if(play){
-      canvas.fillText(score, CANVAS_WIDTH - 5, 30);
+      canvas.fillText(html_score, CANVAS_WIDTH - 5, 30);
 
       for (var i=0; i<particles.length; i++) {
         var particle = particles[i];
@@ -227,8 +238,13 @@ window.onload = function() {
 
         star.draw(canvas);
       }
+
+      if(bonus.length){
+        drawBonus()
+      }
     } else {
-      canvas.fillText("Highscore: " + highscore, CANVAS_WIDTH - 5, 30);
+      canvas.fillText("Highscore: " + html_highscore, CANVAS_WIDTH - 5, 30);
+      canvas.fillText("Level: " + level, (CANVAS_WIDTH / 2) + 50, 400);
     }
 //    canvas.font = "30px Comic Sans MS";
 //    canvas.fillStyle = randomColor;
@@ -240,7 +256,7 @@ window.onload = function() {
 
 
     starInterval = setInterval(function(){
-      stars.push(new star(canvas, randomFloat(0, 300), randomFloat(0, 300), 30, 5, 0.5));
+      stars.push(new star(canvas, randomFloat(30, 300), randomFloat(30, 300), 30, 5, 0.5));
       if(stars.length > 3){
         stars.shift();
       }
@@ -249,9 +265,6 @@ window.onload = function() {
 
 
   function Shape(x, y, w, h, fill) {
-    // This is a very simple and unsafe constructor. All we're doing is checking if the values exist.
-    // "x || 0" just means "if there is a value for x, use that. Otherwise use 0."
-    // But we aren't checking anything else! We could put "Lalala" for the value of x
     this.x = x || 0;
     this.y = y || 0;
     this.w = this.width = w || 1;
@@ -331,28 +344,26 @@ window.onload = function() {
 
   }
 
-  function addSubtext(text){
-    if(interval){
-      clearInterval(interval);
-    }
-
+  function drawBonus(){
     canvas.textAlign = "end";
     canvas.font = "bold 24px Comic Sans MS";
-    canvas.fillStyle = "rgba(255, 215, 0, " + alpha + ")";
-    canvas.fillText( text, CANVAS_WIDTH - 5, 60);
+    canvas.fillStyle = "rgba(255, 215, 0, " + 1 + ")";
 
-    var alpha = 1.0,   // full opacity
-      interval = setInterval(function () {
-        canvas.textAlign = "end";
-        canvas.font = "bold 24px Comic Sans MS";
-        canvas.fillStyle = "rgba(255, 215, 0, " + alpha + ")";
-        canvas.fillText( text, CANVAS_WIDTH - 5, 60);
-        alpha = alpha - 0.05; // decrease opacity (fade out)
-        if (alpha < 0) {
-          canvas.width = canvas.width;
-          clearInterval(interval);
-        }
-      }, 1000/FPS);
+    var height = 60;
+    for(var i=0; i < bonus.length; i++){
+      canvas.fillText( bonus[i], CANVAS_WIDTH - 5, height);
+      height += 30;
+    }
+  }
+
+  function addBonus(text){
+
+    bonus.push(text);
+
+    setTimeout(function(){
+      bonus.pop();
+    }, 3000)
+
   }
 
   function makeVelocityCalculator(e_init, callback) {
@@ -415,118 +426,20 @@ window.onload = function() {
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
 
-  function Particle () {
-    this.scale = 1.0;
-    this.x = 0;
-    this.y = 0;
-    this.radius = 20;
-    this.color = "#000";
-    this.velocityX = 0;
-    this.velocityY = 0;
-    this.scaleSpeed = 0.5;
 
-    this.update = function(ms)
-    {
-      // shrinking
-      this.scale -= this.scaleSpeed * ms / 1000.0;
-
-      if (this.scale <= 0)
-      {
-        this.scale = 0;
-      }
-      // moving away from explosion center
-      this.x += this.velocityX * ms/1000.0;
-      this.y += this.velocityY * ms/1000.0;
-    };
-
-    this.draw = function(context2D)
-    {
-      // translating the 2D context to the particle coordinates
-      context2D.save();
-      context2D.translate(this.x, this.y);
-      context2D.scale(this.scale, this.scale);
-
-      // drawing a filled circle in the particle's local space
-      context2D.beginPath();
-      context2D.arc(0, 0, this.radius, 0, Math.PI*2, true);
-      context2D.closePath();
-
-      context2D.fillStyle = this.color;
-      context2D.fill();
-
-      context2D.restore();
-    };
-  }
-  function randomFloat (min, max)
-  {
+  function randomFloat (min, max){
     return min + Math.random()*(max-min);
   }
-  function createExplosion(x, y, color) {
-    var minSize = 10;
-    var maxSize = 30;
-    var count = 10;
-    var minSpeed = 60.0;
-    var maxSpeed = 200.0;
-    var minScaleSpeed = 1.0;
-    var maxScaleSpeed = 4.0;
-
-    for (var angle=0; angle<360; angle += Math.round(360/count))
-    {
-      var particle = new Particle();
-
-      particle.x = x;
-      particle.y = y;
-
-      particle.radius = randomFloat(minSize, maxSize);
-
-      particle.color = color;
-
-      particle.scaleSpeed = randomFloat(minScaleSpeed, maxScaleSpeed);
-
-      var speed = randomFloat(minSpeed, maxSpeed);
-
-      particle.velocityX = speed * Math.cos(angle * Math.PI / 180.0);
-      particle.velocityY = speed * Math.sin(angle * Math.PI / 180.0);
-
-      particles.push(particle);
-    }
-  }
 
 
-  function star(ctx, x, y, r, p, m)
-  {
-    this.x = x;
-    this.y = y;
-    this.r = r;
-    this.width = this.height = this.r * 2;
-    this.p = p;
-    this.m = m;
-    this.draw = function(ctx){
-      ctx.fillStyle = 'GoldenRod';
-      ctx.save();
-      ctx.beginPath();
-      ctx.translate(this.x, this.y);
-      ctx.moveTo(0,0-this.r);
-      for (var i = 0; i < this.p; i++)
-      {
-        ctx.rotate(Math.PI / this.p);
-        ctx.lineTo(0, 0 - (this.r*this.m));
-        ctx.rotate(Math.PI / this.p);
-        ctx.lineTo(0, 0 - this.r);
-      }
-      ctx.fillStyle = 'gold';
-      ctx.fill();
-      ctx.restore();
-      ctx.closePath();
-    }
 
-  }
+
 
   var imageRepository = new function() {
     // Define images
     this.background = new Image();
     // Set images src
-    this.background.src = "img/bg.png";
+    this.background.src = "img/bg2.gif";
   }
 
   function Background(x, y) {
@@ -538,112 +451,18 @@ window.onload = function() {
     // Implement abstract function
     this.draw = function() {
       // Pan background
-      this.y += this.speed;
-      canvas.drawImage(imageRepository.background, this.x, this.y);
+      if(play){
+        this.y += this.speed;
+      }
+
+      canvas_bg.drawImage(imageRepository.background, this.x, this.y);
       // Draw another image at the top edge of the first image
-      canvas.drawImage(imageRepository.background, this.x, this.y - CANVAS_WIDTH);
+      canvas_bg.drawImage(imageRepository.background, this.x, this.y - CANVAS_WIDTH);
       // If the image scrolled off the screen, reset
-      if (this.y >= CANVAS_HEIGHT)
+      if (this.y + 50 >= CANVAS_HEIGHT)
         this.y = 0;
     };
   }
-
-
-  function boom(ctx, actualX,actualY) {
-
-    // Shim with setTimeout fallback
-
-
-    var laX = actualX;
-    var laY = actualY;
-    var W = canvasElement.width;
-    var H = canvasElement.height;
-    // Let's set our gravity
-    var gravity = 1;
-
-    // Time to write a neat constructor for our
-    // particles.
-    // Lets initialize a random color to use for
-    // our particles and also define the particle
-    // count.
-    var particle_count = 20;
-    var particles = [];
-
-    var random_color = 'gold';
-
-    function Particle() {
-      this.radius = parseInt(Math.random() * 8);
-      this.x = actualX;
-      this.y = actualY;
-
-      this.color = random_color;
-
-      // Random Initial Velocities
-      this.vx = Math.random() * 4 - 2;
-      // vy should be negative initially
-      // then only will it move upwards first
-      // and then later come downwards when our
-      // gravity is added to it.
-      this.vy = Math.random() * -14 - 1;
-
-      // Finally, the function to draw
-      // our particle
-      this.draw = function() {
-        ctx.fillStyle = this.color;
-
-        ctx.beginPath();
-
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, false);
-        ctx.fill();
-
-        ctx.closePath();
-      };
-    }
-
-    // Now lets quickly create our particle
-    // objects and store them in particles array
-    for (var i = 0; i < particle_count; i++) {
-      var particle = new Particle();
-      particles.push(particle);
-    }
-
-
-    // Finally, writing down the code to animate!
-    (function renderFrame() {
-      requestAnimationFrame(renderFrame);
-
-      // Clearing screen to prevent trails
-
-      particles.forEach(function(particle) {
-
-        // The particles simply go upwards
-        // It MUST come down, so lets apply gravity
-        particle.vy += gravity;
-
-        // Adding velocity to x and y axis
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-
-        // We're almost done! All we need to do now
-        // is to reposition the particles as soon
-        // as they move off the canvas.
-        // We'll also need to re-set the velocities
-
-
-
-        particle.draw();
-
-      });
-    }());
-
-
-}
-
-
-
-
-
-
 };
 
 
